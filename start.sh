@@ -164,7 +164,7 @@ install_sage_attention() {
         return
     fi
     echo "-- Installing SageAttention (requires GPU, done at runtime) --"
-    pip install --no-cache-dir git+https://github.com/thu-ml/SageAttention.git
+    pip install --no-cache-dir --no-build-isolation git+https://github.com/thu-ml/SageAttention.git
     echo "-- SageAttention installed --"
 }
 
