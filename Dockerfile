@@ -58,13 +58,6 @@ RUN pip install --no-cache-dir \
     tqdm \
     huggingface-hub
 
-# 4. Cross-compilation de SageAttention SANS GPU physique
-# TORCH_CUDA_ARCH_LIST cible les GPUs RunPod courants :
-#   8.0 = A100, 8.6 = RTX 3090/3080, 8.9 = RTX 4090/4080, 9.0 = H100
-ENV TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"
-ENV FORCE_CUDA=1
-RUN pip install --no-cache-dir git+https://github.com/thu-ml/SageAttention.git
-
 # 4. Installation des requirements ComfyUI (depuis le builder stage)
 COPY --from=builder /build/ComfyUI-Manager/requirements.txt /tmp/manager-requirements.txt
 RUN pip --no-cache-dir install -r manager-requirements.txt

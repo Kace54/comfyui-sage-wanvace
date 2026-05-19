@@ -164,6 +164,16 @@ setup_comfyui() {
     echo "-- ComfyUI setup completed! --"
 }
 
+install_sage_attention() {
+    if [ -n "$DISABLE_SAGE" ] && [ "$DISABLE_SAGE" == "true" ]; then
+        echo "-- SageAttention disabled, skipping install --"
+        return
+    fi
+    echo "-- Installing SageAttention (requires GPU, done at runtime) --"
+    pip install --no-cache-dir git+https://github.com/thu-ml/SageAttention.git
+    echo "-- SageAttention installed --"
+}
+
 start_comfyui() {
     echo "-- Starting ComfyUI --"
     cd /workspace/ComfyUI
@@ -291,6 +301,7 @@ export_env_vars
 
 # ComfyUI specific startup
 setup_comfyui
+install_sage_attention
 download_wan_vace_models
 start_comfyui
 
