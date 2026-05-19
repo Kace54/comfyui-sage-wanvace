@@ -37,7 +37,8 @@ WORKDIR /tmp
 USER root
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglx-mesa0 \
     libglib2.0-0 \
     ffmpeg \
     wget \
