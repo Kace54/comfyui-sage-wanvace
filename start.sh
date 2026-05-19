@@ -146,12 +146,6 @@ setup_comfyui() {
         else
             cd custom_nodes/ComfyUI-mxToolkit && (git pull --autostash || true) && cd ../..
         fi
-		
-		if [ ! -d "custom_nodes/ComfyUI-SageAttention" ]; then
-			git clone https://github.com/Tps-F/ComfyUI-SageAttention.git ./custom_nodes/ComfyUI-SageAttention
-		else
-            cd custom_nodes/ComfyUI-SageAttention && (git pull --autostash || true) && cd ../..
-		fi
     fi
 
     mkdir -p "models/diffusion_models/WAN 2.2/Fun"
