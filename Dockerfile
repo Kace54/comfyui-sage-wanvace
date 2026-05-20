@@ -56,24 +56,22 @@ RUN apt-get update -y && \
 RUN pip install --upgrade setuptools pip uv
 
 # 3. Installation des dépendances Python
-RUN uv pip install --system --no-cache \
+RUN pip install --no-cache-dir \
     cupy-cuda12x \
     triton \
     opencv-python-headless \
     scipy \
     einops \
     tqdm \
-    huggingface-hub
-
-RUN uv pip install --system --no-cache \
+    huggingface-hub \
     https://github.com/Kace54/comfyui-sage-wanvace/releases/download/v2.2.0/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl
 
 # 4. Installation des requirements ComfyUI (depuis le builder stage)
-# COPY --from=builder /build /tmp/build_stage
-# RUN find /tmp/build_stage -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache -r {} \;
+COPY --from=builder /build /tmp/build_stage
+RUN find /tmp/build_stage -maxdepth 2 -name "requirements.txt" -exec pip install --no-cache-dir -r {} \;
 
 # Nettoyage
-# RUN rm -rf /tmp/build_stage /root/.cache/pip /root/.cache/uv
+RUN rm -rf /tmp/build_stage /root/.cache/pip /root/.cache/uv
 
 # 5. Script de démarrage
 COPY start.sh /start.sh
