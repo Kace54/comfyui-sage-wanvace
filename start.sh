@@ -92,6 +92,11 @@ setup_comfyui() {
     echo "-- Setting up ComfyUI --"
     cd /workspace
 
+    if [ -f "/workspace/.setup_done" ] && [ "$FORCE_UPDATE" != "true" ]; then
+        echo "-- Fast boot: .setup_done flag found. Skipping ComfyUI git pulls & pip installs. --"
+        return
+    fi
+
     if [ ! -d "ComfyUI" ]; then
         echo "-- Cloning ComfyUI --"
         git clone https://github.com/comfyanonymous/ComfyUI.git
@@ -105,47 +110,28 @@ setup_comfyui() {
     if [ -n "$DISABLE_CUSTOM" ] && [ "$DISABLE_CUSTOM" = "true" ]; then
         echo "-- Custom nodes disabled --"
     else
-        if [ ! -d "custom_nodes/ComfyUI-Manager" ]; then
-            git clone https://github.com/ltdrdata/ComfyUI-Manager.git ./custom_nodes/ComfyUI-Manager
-        else
-            cd custom_nodes/ComfyUI-Manager && (git pull --autostash || true) && cd ../..
-        fi
+        echo "-- Parallel cloning/updating of custom nodes --"
+        PIDS_NODES=()
+        
+        clone_or_update() {
+            local repo_url=$1
+            local target_dir=$2
+            if [ ! -d "$target_dir" ]; then
+                git clone "$repo_url" "$target_dir"
+            else
+                cd "$target_dir" && (git pull --autostash || true) && cd ../..
+            fi
+        }
 
-        if [ ! -d "custom_nodes/RGThree-ComfyUI" ]; then
-            git clone https://github.com/rgthree/rgthree-comfy.git ./custom_nodes/RGThree-ComfyUI
-        else
-            cd custom_nodes/RGThree-ComfyUI && (git pull --autostash || true) && cd ../..
-        fi
+        clone_or_update "https://github.com/ltdrdata/ComfyUI-Manager.git" "./custom_nodes/ComfyUI-Manager" & PIDS_NODES+=($!)
+        clone_or_update "https://github.com/rgthree/rgthree-comfy.git" "./custom_nodes/RGThree-ComfyUI" & PIDS_NODES+=($!)
+        clone_or_update "https://github.com/stuttlepress/ComfyUI-Wan-VACE-Prep.git" "./custom_nodes/ComfyUI-Wan-VACE-Prep" & PIDS_NODES+=($!)
+        clone_or_update "https://github.com/kijai/ComfyUI-KJNodes.git" "./custom_nodes/ComfyUI-KJNodes" & PIDS_NODES+=($!)
+        clone_or_update "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git" "./custom_nodes/ComfyUI-VideoHelperSuite" & PIDS_NODES+=($!)
+        clone_or_update "https://github.com/StableLlama/ComfyUI-basic_data_handling.git" "./custom_nodes/ComfyUI-basic_data_handling" & PIDS_NODES+=($!)
+        clone_or_update "https://github.com/Smirnov75/ComfyUI-mxToolkit.git" "./custom_nodes/ComfyUI-mxToolkit" & PIDS_NODES+=($!)
 
-        if [ ! -d "custom_nodes/ComfyUI-Wan-VACE-Prep" ]; then
-            git clone https://github.com/stuttlepress/ComfyUI-Wan-VACE-Prep.git ./custom_nodes/ComfyUI-Wan-VACE-Prep
-        else
-            cd custom_nodes/ComfyUI-Wan-VACE-Prep && (git pull --autostash || true) && cd ../..
-        fi
-
-        if [ ! -d "custom_nodes/ComfyUI-KJNodes" ]; then
-            git clone https://github.com/kijai/ComfyUI-KJNodes.git ./custom_nodes/ComfyUI-KJNodes
-        else
-            cd custom_nodes/ComfyUI-KJNodes && (git pull --autostash || true) && cd ../..
-        fi
-
-        if [ ! -d "custom_nodes/ComfyUI-VideoHelperSuite" ]; then
-            git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git ./custom_nodes/ComfyUI-VideoHelperSuite
-        else
-            cd custom_nodes/ComfyUI-VideoHelperSuite && (git pull --autostash || true) && cd ../..
-        fi
-
-        if [ ! -d "custom_nodes/ComfyUI-basic_data_handling" ]; then
-            git clone https://github.com/StableLlama/ComfyUI-basic_data_handling.git ./custom_nodes/ComfyUI-basic_data_handling
-        else
-            cd custom_nodes/ComfyUI-basic_data_handling && (git pull --autostash || true) && cd ../..
-        fi
-		
-        if [ ! -d "custom_nodes/ComfyUI-mxToolkit" ]; then
-            git clone https://github.com/Smirnov75/ComfyUI-mxToolkit.git ./custom_nodes/ComfyUI-mxToolkit
-        else
-            cd custom_nodes/ComfyUI-mxToolkit && (git pull --autostash || true) && cd ../..
-        fi
+        wait "${PIDS_NODES[@]}"
     fi
 
     mkdir -p "models/diffusion_models/WAN 2.2/Fun"
@@ -153,7 +139,7 @@ setup_comfyui() {
     mkdir -p "models/text_encoders"
 
     echo "-- Installing custom nodes dependencies --"
-    find /workspace/ComfyUI/custom_nodes -maxdepth 2 -name "requirements.txt" -exec pip install --no-cache-dir -r {} \;
+    find /workspace/ComfyUI/custom_nodes -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache-dir -r {} \;
 
     echo "-- ComfyUI setup completed! --"
 }
@@ -222,9 +208,9 @@ download_wan_vace_models() {
     VAE_URL="https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
     if [[ ! -f "${VAE_DIR}/wan_2.1_vae.safetensors" ]]; then
         echo "-- Downloading wan_2.1_vae.safetensors (254 MB) --"
-        wget -q --show-progress \
+        aria2c -x 16 -s 16 -k 1M --console-log-level=error --summary-interval=10 \
             "${VAE_URL}" \
-            -O "${VAE_DIR}/wan_2.1_vae.safetensors" &
+            -d "${VAE_DIR}" -o "wan_2.1_vae.safetensors" &
         PIDS+=(${!})
     else
         echo "-- wan_2.1_vae already exists, skipping --"
@@ -235,9 +221,9 @@ download_wan_vace_models() {
 
     if [[ ! -f "${DIFF_DIR}/wan2.2_fun_vace_high_noise_14B_fp8_scaled.safetensors" ]]; then
         echo "-- Downloading wan2.2_fun_vace_high_noise_14B_fp8_scaled.safetensors (17 GB) --"
-        wget -q --show-progress \
+        aria2c -x 16 -s 16 -k 1M --console-log-level=error --summary-interval=10 \
             "${DIFF_BASE}/wan2.2_fun_vace_high_noise_14B_fp8_scaled.safetensors" \
-            -O "${DIFF_DIR}/wan2.2_fun_vace_high_noise_14B_fp8_scaled.safetensors" &
+            -d "${DIFF_DIR}" -o "wan2.2_fun_vace_high_noise_14B_fp8_scaled.safetensors" &
         PIDS+=($!)
     else
         echo "-- wan2.2_fun_vace_high_noise already exists, skipping --"
@@ -245,9 +231,9 @@ download_wan_vace_models() {
 
     if [[ ! -f "${DIFF_DIR}/wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors" ]]; then
         echo "-- Downloading wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors (17 GB) --"
-        wget -q --show-progress \
+        aria2c -x 16 -s 16 -k 1M --console-log-level=error --summary-interval=10 \
             "${DIFF_BASE}/wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors" \
-            -O "${DIFF_DIR}/wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors" &
+            -d "${DIFF_DIR}" -o "wan2.2_fun_vace_low_noise_14B_fp8_scaled.safetensors" &
         PIDS+=($!)
     else
         echo "-- wan2.2_fun_vace_low_noise already exists, skipping --"
@@ -258,9 +244,9 @@ download_wan_vace_models() {
 
     if [[ ! -f "${LORA_DIR}/wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_1217.safetensors" ]]; then
         echo "-- Downloading wan2.2_t2v_A14b_high_noise_lora (586 MB) --"
-        wget -q --show-progress \
+        aria2c -x 16 -s 16 -k 1M --console-log-level=error --summary-interval=10 \
             "${LORA_BASE}/wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_1217.safetensors" \
-            -O "${LORA_DIR}/wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_1217.safetensors" &
+            -d "${LORA_DIR}" -o "wan2.2_t2v_A14b_high_noise_lora_rank64_lightx2v_4step_1217.safetensors" &
         PIDS+=($!)
     else
         echo "-- wan2.2_t2v_A14b_high_noise_lora already exists, skipping --"
@@ -268,9 +254,9 @@ download_wan_vace_models() {
 
     if [[ ! -f "${LORA_DIR}/wan2.2_t2v_A14b_low_noise_lora_rank64_lightx2v_4step_1217.safetensors" ]]; then
         echo "-- Downloading wan2.2_t2v_A14b_low_noise_lora (586 MB) --"
-        wget -q --show-progress \
+        aria2c -x 16 -s 16 -k 1M --console-log-level=error --summary-interval=10 \
             "${LORA_BASE}/wan2.2_t2v_A14b_low_noise_lora_rank64_lightx2v_4step_1217.safetensors" \
-            -O "${LORA_DIR}/wan2.2_t2v_A14b_low_noise_lora_rank64_lightx2v_4step_1217.safetensors" &
+            -d "${LORA_DIR}" -o "wan2.2_t2v_A14b_low_noise_lora_rank64_lightx2v_4step_1217.safetensors" &
         PIDS+=($!)
     else
         echo "-- wan2.2_t2v_A14b_low_noise_lora already exists, skipping --"
@@ -281,9 +267,9 @@ download_wan_vace_models() {
 
     if [[ ! -f "${ENC_DIR}/umt5_xxl_fp8_e4m3fn_scaled.safetensors" ]]; then
         echo "-- Downloading umt5_xxl_fp8_e4m3fn_scaled.safetensors (6.3 GB) --"
-        wget -q --show-progress \
+        aria2c -x 16 -s 16 -k 1M --console-log-level=error --summary-interval=10 \
             "${ENC_BASE}/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
-            -O "${ENC_DIR}/umt5_xxl_fp8_e4m3fn_scaled.safetensors" &
+            -d "${ENC_DIR}" -o "umt5_xxl_fp8_e4m3fn_scaled.safetensors" &
         PIDS+=($!)
     else
         echo "-- umt5_xxl_fp8_e4m3fn_scaled already exists, skipping --"
@@ -316,6 +302,11 @@ setup_comfyui
 install_sage_attention
 download_wan_vace_models
 start_comfyui
+
+# Write fast boot flag so next restart is instant
+if [ "$FORCE_UPDATE" != "true" ]; then
+    touch "/workspace/.setup_done"
+fi
 
 echo "> Start script finished, Pod is ready to use. <"
 tail -f /workspace/comfyui.log

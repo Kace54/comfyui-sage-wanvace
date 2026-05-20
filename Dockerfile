@@ -15,7 +15,13 @@ WORKDIR /build
 
 RUN echo "ComfyUI requirements SHA: ${COMFYUI_REQUIREMENTS_SHA}" && \
     git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git && \
-    git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git
+    git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    git clone --depth 1 https://github.com/rgthree/rgthree-comfy.git && \
+    git clone --depth 1 https://github.com/stuttlepress/ComfyUI-Wan-VACE-Prep.git && \
+    git clone --depth 1 https://github.com/kijai/ComfyUI-KJNodes.git && \
+    git clone --depth 1 https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
+    git clone --depth 1 https://github.com/StableLlama/ComfyUI-basic_data_handling.git && \
+    git clone --depth 1 https://github.com/Smirnov75/ComfyUI-mxToolkit.git
 
 # =============================================================================
 # Final stage - install dependencies
@@ -43,13 +49,14 @@ RUN apt-get update -y && \
     ffmpeg \
     wget \
     git \
+    aria2 \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Mise à jour pip et outils de base
-RUN pip install --upgrade setuptools pip
+RUN pip install --upgrade setuptools pip uv
 
 # 3. Installation des dépendances Python
-RUN pip install --no-cache-dir \
+RUN uv pip install --system --no-cache-dir \
     cupy-cuda12x \
     triton \
     opencv-python-headless \
@@ -60,14 +67,11 @@ RUN pip install --no-cache-dir \
     https://github.com/Kace54/comfyui-sage-wanvace/releases/download/v2.2.0/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl
 
 # 4. Installation des requirements ComfyUI (depuis le builder stage)
-COPY --from=builder /build/ComfyUI-Manager/requirements.txt /tmp/manager-requirements.txt
-RUN pip --no-cache-dir install -r manager-requirements.txt
-
-COPY --from=builder /build/ComfyUI/requirements.txt /tmp/comfyui-requirements.txt
-RUN pip --no-cache-dir install -r comfyui-requirements.txt
+COPY --from=builder /build /tmp/build_stage
+RUN find /tmp/build_stage -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache-dir -r {} \;
 
 # Nettoyage
-RUN rm -rf /tmp/*.txt /root/.cache/pip
+RUN rm -rf /tmp/build_stage /root/.cache/pip /root/.cache/uv
 
 # 5. Script de démarrage
 COPY start.sh /start.sh
