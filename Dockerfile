@@ -56,7 +56,8 @@ RUN pip install --no-cache-dir \
     scipy \
     einops \
     tqdm \
-    huggingface-hub
+    huggingface-hub \
+    https://github.com/Kace54/comfyui-sage-wanvace/releases/download/v2.2.0/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl
 
 # 4. Installation des requirements ComfyUI (depuis le builder stage)
 COPY --from=builder /build/ComfyUI-Manager/requirements.txt /tmp/manager-requirements.txt

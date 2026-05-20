@@ -163,8 +163,12 @@ install_sage_attention() {
         echo "-- SageAttention disabled, skipping install --"
         return
     fi
-    echo "-- Installing SageAttention (requires GPU, done at runtime) --"
-    pip install --no-cache-dir --no-build-isolation git+https://github.com/thu-ml/SageAttention.git
+    if python -c "import sageattention" &>/dev/null; then
+        echo "-- SageAttention is already installed --"
+        return
+    fi
+    echo "-- Installing SageAttention (precompiled wheel) --"
+    pip install --no-cache-dir https://github.com/Kace54/comfyui-sage-wanvace/releases/download/v2.2.0/sageattention-2.2.0-cp312-cp312-linux_x86_64.whl
     echo "-- SageAttention installed --"
 }
 
@@ -172,16 +176,30 @@ start_comfyui() {
     echo "-- Starting ComfyUI --"
     cd /workspace/ComfyUI
 
-    if [ -n "$DISABLE_SAGE" ] && [ "$DISABLE_SAGE" == "true" ]; then
-        nohup python main.py --fast fp16_accumulation --listen 0.0.0.0 \
-            &> /workspace/comfyui.log &
-        echo "-- SageAttention disabled --"
-    else
-        nohup python main.py --fast fp16_accumulation --use-sage-attention --listen 0.0.0.0 \
-            &> /workspace/comfyui.log &
-    fi
+    (
+        while true; do
+            echo "-- Launching ComfyUI --" >> /workspace/comfyui.log
+            if [ -n "$DISABLE_SAGE" ] && [ "$DISABLE_SAGE" == "true" ]; then
+                echo "-- SageAttention disabled --" >> /workspace/comfyui.log
+                python main.py --fast fp16_accumulation --listen 0.0.0.0 >> /workspace/comfyui.log 2>&1
+            else
+                python main.py --fast fp16_accumulation --use-sage-attention --listen 0.0.0.0 >> /workspace/comfyui.log 2>&1
+            fi
+            
+            EXIT_CODE=$?
+            echo "-- ComfyUI exited with code $EXIT_CODE --" >> /workspace/comfyui.log
+            
+            if [ $EXIT_CODE -eq 0 ]; then
+                echo "-- Clean exit (code 0). Stopping auto-restart. --" >> /workspace/comfyui.log
+                break
+            fi
+            
+            echo "-- ComfyUI crashed (possible OOM). Restarting in 5 seconds... --" >> /workspace/comfyui.log
+            sleep 5
+        done
+    ) &
 
-    echo "-- ComfyUI started --"
+    echo "-- ComfyUI started (with auto-restart) --"
 }
 
 # ----------------------------------------------------------------------------
