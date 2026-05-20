@@ -56,7 +56,7 @@ RUN apt-get update -y && \
 RUN pip install --upgrade setuptools pip uv
 
 # 3. Installation des dépendances Python
-RUN uv pip install --system --no-cache-dir \
+RUN uv pip install --system --no-cache \
     cupy-cuda12x \
     triton \
     opencv-python-headless \
@@ -68,7 +68,7 @@ RUN uv pip install --system --no-cache-dir \
 
 # 4. Installation des requirements ComfyUI (depuis le builder stage)
 COPY --from=builder /build /tmp/build_stage
-RUN find /tmp/build_stage -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache-dir -r {} \;
+RUN find /tmp/build_stage -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache -r {} \;
 
 # Nettoyage
 RUN rm -rf /tmp/build_stage /root/.cache/pip /root/.cache/uv

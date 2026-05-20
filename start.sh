@@ -139,7 +139,7 @@ setup_comfyui() {
     mkdir -p "models/text_encoders"
 
     echo "-- Installing custom nodes dependencies --"
-    find /workspace/ComfyUI/custom_nodes -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache-dir -r {} \;
+    find /workspace/ComfyUI/custom_nodes -maxdepth 2 -name "requirements.txt" -exec uv pip install --system --no-cache -r {} \;
 
     echo "-- ComfyUI setup completed! --"
 }
